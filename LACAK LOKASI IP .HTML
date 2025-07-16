@@ -1,0 +1,264 @@
+
+<!DOCTYPE html><html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tracking IP BY X9X</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', monospace;
+      background: black;
+      color: #00ff00;
+      overflow-x: hidden;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      padding: 20px;
+      background: rgba(0,0,0,0.85);
+      border-radius: 10px;
+      box-shadow: 0 0 20px #00ff00;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 5px;
+      background: #111;
+      color: #00ff00;
+      font-family: 'Courier New', monospace;
+    }
+    button {
+      background: #00aa00;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #00ff00;
+      color: black;
+    }
+    .result-box, .owner-log {
+      margin-top: 20px;
+      background: #111;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #00ff00;
+    }
+    .result-box pre, .owner-log pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    #map {
+      height: 300px;
+      margin-top: 15px;
+      border-radius: 10px;
+      filter: grayscale(100%) brightness(1.2);
+      border: 2px solid #00ff00;
+    }
+    .history {
+      margin-top: 20px;
+      background: #000;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.9em;
+      border: 1px dashed #00ff00;
+    }
+    .history-entry {
+      margin-bottom: 8px;
+      border-bottom: 1px dashed #00ff00;
+      padding-bottom: 5px;
+    }
+    .success {
+      margin-top: 10px;
+      color: #00ff00;
+      font-weight: bold;
+    }
+    .logo {
+      width: 100px;
+      margin: auto;
+      display: block;
+      filter: brightness(1.5);
+    }
+    .fade-in {
+      animation: fadeIn 2s ease-in-out forwards;
+      opacity: 0;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+    .terminal-text {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      color: #00ff00;
+      border-left: 2px solid #00ff00;
+      padding-left: 10px;
+      margin-top: 10px;
+    }
+    .scrolling-text {
+      width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      box-sizing: border-box;
+      animation: marquee 15s linear infinite;
+      border-top: 1px dashed #00ff00;
+      padding-top: 5px;
+      margin-top: 10px;
+    }
+    @keyframes marquee {
+      from { transform: translateX(100%); }
+      to { transform: translateX(-100%); }
+    }
+    .settings-box {
+      margin-top: 20px;
+      padding: 10px;
+      background: #111;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #00ff00;
+    }
+  </style>
+</head>
+<body><audio id="music" src="https://files.catbox.moe/cnz47f.mp3"></audio>
+
+<div id="appBox" class="container fade-in">
+  <img src="https://files.catbox.moe/1b6f5o.jpg" alt="Logo" class="logo" />
+  <h2>👾 Selamat Datang di Tracking IP BY X9X</h2>
+  <p>Masukkan alamat IP untuk mulai pelacakan.</p>
+  <input type="text" id="ipInput" placeholder="Masukkan IP (contoh: 8.8.8.8)">
+  <button onclick="trackIp()">🔎 Lacak IP</button>
+  <button onclick="trackMyIp()">🌐 Lacak IP Saya</button>
+  <div class="result-box" id="ipResult"></div>
+  <div id="map"></div>
+  <div class="success" id="successMessage"></div>
+  <button onclick="downloadData()">⬇️ Unduh Data Hasil</button>
+  <div class="settings-box">
+    <h3>⚙️ Settings</h3>
+    <button onclick="playMusic()">🎵 Musik</button>
+    <button onclick="promptLoginStatus()">🔐 Login Status</button>
+  </div>
+  <div class="history" id="log">
+    <strong>📜 Riwayat Pelacakan:</strong>
+  </div>
+  <div class="owner-log" id="ownerLog" style="display:none">
+    <h3>🧠 Aktivitas Semua Pengguna:</h3>
+    <div id="allLogs"></div>
+  </div>
+  <div class="scrolling-text">⚠️ Sistem dalam mode pemantauan. Aktivitas dilacak secara real-time oleh GhazoOfc.</div>
+</div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+  let map, marker, latestData = "";
+  const music = document.getElementById("music");
+
+  function playMusic() {
+    music.play();
+  }
+
+  function promptLoginStatus() {
+    const username = prompt("Masukkan username:");
+    const password = prompt("Masukkan password:");
+    if ((username === "X9X" && password === "X9X") ||
+        (username === "X9X" && password === "2")) {
+      alert("Login Owner Berhasil ✔️\nAkses penuh diberikan.");
+      showAllTrackingLogs();
+    } else if (username === "user" && password === "1") {
+      alert("Login User Berhasil ✔️");
+    } else {
+      alert("❌ Login Gagal");
+    }
+  }
+
+  function showAllTrackingLogs() {
+    const allLogs = JSON.parse(localStorage.getItem("userTrackingLogs") || "[]");
+    const container = document.getElementById("allLogs");
+    const ownerBox = document.getElementById("ownerLog");
+    container.innerHTML = "";
+    ownerBox.style.display = "block";
+
+    if (allLogs.length === 0) {
+      container.innerHTML = "Belum ada aktivitas.";
+      return;
+    }
+
+    allLogs.forEach(log => {
+      const div = document.createElement("div");
+      div.className = "history-entry";
+      div.textContent = `[${log.timestamp}] ${log.ip} - ${log.country}, ${log.city}`;
+      container.appendChild(div);
+    });
+  }
+
+  function initMap(lat = 0, lon = 0) {
+    if (!map) {
+      map = L.map('map').setView([lat, lon], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: 'Peta © OpenStreetMap'
+      }).addTo(map);
+      marker = L.marker([lat, lon]).addTo(map);
+    } else {
+      map.setView([lat, lon], 8);
+      marker.setLatLng([lat, lon]);
+    }
+  }
+
+  async function trackIp(inputIp = null) {
+    const ip = inputIp || document.getElementById('ipInput').value.trim();
+    const resultBox = document.getElementById('ipResult');
+    const logBox = document.getElementById('log');
+    const successMessage = document.getElementById('successMessage');
+
+    if (!ip) return alert("Mohon masukkan alamat IP terlebih dahulu.");
+    resultBox.innerHTML = "🔄 Memproses data, mohon tunggu...";
+    successMessage.innerHTML = "";
+
+    try {
+      const res = await fetch(`https://ipapi.co/${ip}/json/`);
+      const data = await res.json();
+
+      if (!data || data.error) {
+        resultBox.innerHTML = `<strong>❌ IP Tidak Valid:</strong> ${data.reason || "IP tidak dapat dilacak."}`;
+        return;
+      }
+
+      const info = `
+Alamat IP      : ${data.ip}
+Negara         : ${data.country_name} (${data.country_code})
+Benua          : ${data.continent_code}
+Kota           : ${data.city || "Tidak tersedia"}
+Wilayah        : ${data.region || "-"}
+Zona Waktu     : ${data.timezone}
+Koordinat      : ${data.latitude}, ${data.longitude}
+ISP            : ${data.org || "-"}
+Organisasi     : ${data.org || "-"}
+Tipe Koneksi   : ${data.version || "IPv4/6"}
+Bahasa Resmi   : ${data.languages || "-"}
+Status         : ✅ IP Valid dan Dilacak
+      `.trim();
+
+      resultBox.innerHTML = `<pre>${info}</pre>`;successMessage.innerHTML = "✅ Tracking berhasil dilakukan.";
+  latestData = info;
+  initMap(data.latitude, data.longitude);
+
+  const timestamp = new Date().toLocaleString();
+  const entry = { timestamp, ip: data.ip, country: data.country_name, city: data.city };
+
+  const logs = JSON.parse(localStorage.getItem("userTrackingLogs") || "[]");
+  logs.push(entry);
+  localStorage.setItem("userTrackingLogs", JSON.stringify(logs));
+
+  const logEntry = document.createElement("div");
+  logEntry.className = "history-entry";
+  logEntry.textContent = `[${timestamp}] ${data.ip} - ${data.country_name}, ${data.city}`;
+  logBox.appendChild(logEntry);
+} catch (e) {
+  resultBox.innerHTML = `<strong>❌ Gagal mengambil data IP.</strong>`;
+}
+
+}
+
+async function trackMyIp() { const res = await fetch("https://api.ipify.org?format=json"); const data = await res.json(); trackIp(data.ip); }
+
+function downloadData() { if (!latestData) return alert("Belum ada data untuk diunduh."); const blob = new Blob([latestData], { type: "text/plain" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "hasil_pelacakan_ip.txt"; a.click(); URL.revokeObjectURL(url); } </script>
+
+</body>
+</html>
